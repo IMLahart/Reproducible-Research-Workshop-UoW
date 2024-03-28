@@ -12,7 +12,9 @@ Learning objectives:
 
 * Work with data by writing and executing code Establish a well-defined directory structure (in OSF)
 
-* Identifying and managing a working directory (in RStudio) Use relative directory paths to identify file locations (in RStudio)
+* Identifying and managing a working directory (in RStudio)
+
+* Use relative directory paths to identify file locations (in RStudio)
 
 * Learn how to create an R Markdown file
 
