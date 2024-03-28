@@ -1,0 +1,250 @@
+---
+title: "Movie ratings and box office performance"
+author: "IM Lahart"
+date: "2024-03-13"
+output: html_document
+---
+
+### Page set up
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Install renv for reproducibility, include=FALSE}
+#Install renv package if needed
+if(!require(renv)){install.packages('renv')}
+```
+
+```{r initializing renv, include=FALSE}
+renv::init()
+```
+
+
+### Install and load packages
+
+```{r Install and load packages, include=FALSE}
+#Install tidyverse package if needed
+if(!require(tidyverse)){install.packages('tidyverse')}
+#Load tidyverse package
+library(tidyverse)
+
+#Install tables package if needed
+if(!require(tables)){install.packages('tables')}
+#Load tables package
+library(tables)
+
+#Install flextable package if needed
+if(!require(flextable)){install.packages('flextable')}
+#Load flextable package (as_flextable)
+library(flextable)
+
+#Install arsenal package if needed
+if(!require(arsenal)){install.packages('arsenal')}
+#Load arsenal package (for tableby)
+library(arsenal)
+
+#Install modelsummary package if needed
+if(!require(modelsummary)){install.packages('modelsummary')}
+#Load modelsummary package (for datasummary_crosstab)
+library(modelsummary)
+
+#Install RColorBrewer package if needed
+if(!require(RColorBrewer)){install.packages('RColorBrewer')}
+#Load RColorBrewer package
+library(RColorBrewer)
+
+renv::snapshot()
+```
+
+### Read file in
+
+```{r Read in csv file, include=FALSE}
+Movie_db <- read_csv("Movie_database.csv", skip_empty_rows = TRUE)
+```
+
+### Processing of data
+```{r Processing variables, include=FALSE}
+Movie_db$Genre <- as.factor(Movie_db$Genre)
+Movie_db$Best_picture <- as.factor(Movie_db$Best_picture)
+Movie_db$Genre <- fct_collapse(Movie_db$Genre, Crime_mystery = c("Crime", "Mystery"))
+# head(Movie_db) # If you would like to check your dataset, just delete the hashtag before 'head' at the beginning of this line.
+```
+
+
+```{r Create dataframe for tables, include=FALSE}
+Movies_genre <- Movie_db %>% dplyr::select(c(Genre, IMDB_Rating, MetaCritic, Budget_m, Runtime, Worldwide_earning_m, Best_picture))
+```
+
+### Summary table using tably and summary
+
+```{r Table, results="asis"}
+mylabels <- list(Best_picture = "Best picture", MetaCritic = "Meta critic score", IMDB_rating = "IMDB rating", Runtime = "Run time (mins)", Budget_m ="Budget, million $", Worldwide_earning_m = "Global earnings, million $")
+tab1 <- tableby(Genre ~ Best_picture + IMDB_Rating + MetaCritic + Runtime + Budget_m + Worldwide_earning_m, data=Movie_db, test = FALSE)
+summary(tab1, labelTranslations = mylabels, digits = 1)
+```
+
+### Table 1. Movie viewer and critic ratings, runtime, budget, and earnings per genre
+
+```{r Genre Table}
+set_flextable_defaults(background.color = "white")
+
+tab <- tabular(
+    (Genre + 1) ~ (n = 1) + Format(digits = 1) *
+      (IMDB_Rating + MetaCritic + Runtime + Budget_m + Worldwide_earning_m) * (mean + sd),
+    data = Movies_genre)
+  
+Genre_tab <- as_flextable(tab) %>%
+            autofit()
+
+Genre_tab <- theme_vanilla(Genre_tab)
+Genre_tab <- add_footer_lines(Genre_tab, "Note: IMDB rating 0-10; MetaCritic score 0-100%; Budget and Worldwide earnings in millions of dollars")
+Genre_tab <- color(Genre_tab, part = "footer", color = "#666666")
+Genre_tab <- set_caption(Genre_tab, caption = "Table 1. Movie viewer and critic ratings, runtime, budget, and earnings per genre")
+Genre_tab
+```
+
+
+```{r Table 1 dimensions}
+dims <- flextable_dim(Genre_tab)
+dims
+```
+
+```{r Table 1 save, fig.height=8.1, fig.width=4.1}
+save_as_image(Genre_tab, path = "Movie data by genre.png")
+```
+
+
+### Table 2. Movie viewer and critic ratings, runtime, budget, and earnings by best picture nomination
+
+```{r Best Picture Table}
+set_flextable_defaults(background.color = "white") 
+
+tab_bp <- tabular(
+    (Best_picture + 1) ~ (n = 1) + Format(digits = 1) *
+      (IMDB_Rating + MetaCritic + Runtime + Budget_m + Worldwide_earning_m) * (mean + sd),
+    data = Movies_genre)
+  
+BP_tab <- as_flextable(tab_bp) %>%
+            autofit()
+
+BP_tab <- theme_vanilla(BP_tab)
+BP_tab <- add_footer_lines(BP_tab, "Note: IMDB rating 0-10; MetaCritic score 0-100%; Budget and Worldwide earnings in millions of dollars")
+BP_tab <- color(BP_tab, part = "footer", color = "#666666")
+BP_tab <- set_caption(BP_tab, caption = "Table 2. Movie viewer and critic ratings, runtime, budget, and earnings by best picture nomination")
+BP_tab
+```
+
+```{r Table 2 dimensions}
+dims <- flextable_dim(BP_tab)
+dims
+```
+
+```{r Table 2 save, fig.height=7.9, fig.width=2.1}
+save_as_image(BP_tab, path = "Movie data by best picture.png")
+```
+
+
+### Table 3. Best picture nominations by genre
+
+```{r Table of best picture nominations by genre}
+options("modelsummary_factory_default" = "flextable")
+Genre_ctabs <- datasummary_crosstab(Best_picture ~ Genre, data = Movie_db)
+
+Genre_ctabs <- theme_vanilla(Genre_ctabs)
+Genre_ctabs <- align(Genre_ctabs, align = "center", part = "all")
+Genre_ctabs <- autofit(Genre_ctabs)
+Genre_ctabs <- add_footer_lines(Genre_ctabs, "Note: Yes = movies that were nominated for best picture at the academy awards; No = movies that were not nominated.")
+Genre_ctabs <- color(Genre_ctabs, part = "footer", color = "#666666")
+Genre_ctabs <- set_caption(Genre_ctabs, caption = "Table 3. Best picture nominations by genre")
+Genre_ctabs
+```
+
+```{r Table 3 dimensions}
+dims <- flextable_dim(Genre_ctabs)
+dims
+```
+
+```{r Table 3 save, fig.height=7.5, fig.width=1.75}
+save_as_image(Genre_ctabs, path = "Best picture nominations by movie genre.png")
+```
+
+
+### Figure 1. The relationship between critics opinions and how much a movie earns
+
+```{r Genre plot}
+Plot_1 <- ggplot(Movie_db, aes(x=MetaCritic, y=Worldwide_earning_m, color = Genre)) + 
+          geom_point() +
+          theme_classic()
+
+Genre_plot <- Plot_1 + ggtitle("The relationship between critics opinions and how much a movie earns") +
+                      xlab("Meta Critic Score") + 
+                      ylab("Global Earnings in millions ($)") + 
+                      scale_color_brewer(palette = "Set1")
+
+Genre_plot
+```
+
+```{r Genre plot save}
+ggsave("Critic ratings and movie earnings.png", plot = Genre_plot, width = 9.0, height = 6.0, dpi = 300)
+```
+
+
+### Figure 2. The relationship between movie run time and movie earnings
+
+```{r Run time plot}
+Plot_2 <- ggplot(Movie_db, aes(x=Runtime, y=Worldwide_earning_m, color = Genre)) + 
+          geom_point() +
+          theme_classic()
+
+Runtime_plot <- Plot_2 + ggtitle("The relationship between movie run time and movie earnings") +
+                          xlab("Run time (mins)") + ylab("Global Earnings in millions ($)") + 
+                          scale_color_brewer(palette = "Set1")
+
+Runtime_plot
+```
+
+```{r Runtime plot save}
+ggsave("Runtime and movie earnings.png", plot = Runtime_plot, width = 9.0, height = 6.0, dpi = 300)
+```
+
+### Figure 3. Best picture nominations by genre
+
+```{r Barplot Best picture by genre}
+p1 <- ggplot(data = Movie_db, aes(x = Genre, fill = Best_picture)) +
+  geom_bar(position = "dodge") +
+  scale_y_continuous(limits = c(0, 30)) +
+  labs(subtitle = "Best picture nominations by genre") + 
+  xlab("Genre") + 
+  ylab("N Best picture nominations") +
+  theme_classic()
+p1
+```
+
+```{r Barplot Best picture by genre save}
+ggsave("Barplot Best picture by genre.png", plot = p1, width = 7.0, height = 4.0, dpi = 300)
+```
+
+
+### Figure 4. Movie earnings by genre
+
+```{r Boxplot movie earnings by genre}
+p <- ggplot(Movie_db, aes(x=Genre, y=Worldwide_earning_m, color = Genre)) + 
+  geom_boxplot()
+
+Box_earnings <- p + theme_classic() + 
+            xlab("Movie genre") +
+            ylab("Worldwide earnings in millions ($)") +
+            stat_summary(fun.y=mean, geom="point", shape=23, size=4, color = "red") + 
+            scale_fill_brewer(palette="Set2")
+
+Box_earnings
+```
+
+```{r Boxplot movie earnings by genre save}
+ggsave("Boxplot movie earnings by genre.png", plot = Box_earnings, width = 9.0, height = 6.0, dpi = 300)
+```
+
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
